@@ -50,6 +50,15 @@ async function run() {
          * app.patch('/bookings/:id') ~~ for update data ~~
          * app.delete('/bookings/:id') ~~ for delete data ~~
         ****/
+
+        app.get('/bookings', async (req, res) => {
+            const email = req.query.email;
+            // console.log(email);
+            const query = { email: email };
+            const bookings = await bookingsCollection.find(query).toArray();
+            res.send(bookings);
+        });
+
         app.post('/bookings', async (req, res) => {
             const booking = req.body;
             // console.log(booking);
