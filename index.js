@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const ObjectId = require('mongodb').ObjectId;
+
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
@@ -39,11 +41,11 @@ async function run() {
         const appointmentOptionsCollection = client.db('doctors_portal').collection('appointmentOptions');
         const bookingsCollection = client.db('doctors_portal').collection('bookings');
         const usersCollection = client.db('doctors_portal').collection('users');
+        const doctorsCollection = client.db('doctors_portal').collection('doctors');
 
         // use aggregate to query multiple collection & then merge data
         app.get('/appointmentOptions', async (req, res) => {
             const date = req.query.date;
-            // console.log(date);
 
             const query = {};
             const options = await appointmentOptionsCollection.find(query).toArray();
@@ -56,20 +58,15 @@ async function run() {
                 const bookedSlots = optionBooked.map(book => book.slot)
                 const remainingSlots = option.slots.filter(slot => !bookedSlots.includes(slot));
                 option.slots = remainingSlots;
-                // console.log(option.name, bookedSlots, remainingSlots.length);
             })
             res.send(options);
         });
 
-        /****
-         * API naming convention
-         * bookings
-         * app.get('/bookings')
-         * app.get('/bookings/:id')
-         * app.post('/bookings') ~~ create data ~~
-         * app.patch('/bookings/:id') ~~ update data ~~
-         * app.delete('/bookings/:id') ~~ delete data ~~
-        ****/
+        app.get('/appointmentSpecialty', async (req, res) => {
+            const query = {};
+            const result = await appointmentOptionsCollection.find(query).project({ name: 1 }).toArray();
+            res.send(result);
+        });
 
         app.get('/bookings', verifyJWT, async (req, res) => {
             const email = req.query.email;
@@ -85,8 +82,6 @@ async function run() {
 
         app.post('/bookings', async (req, res) => {
             const booking = req.body;
-            // console.log(booking);
-
             const query = {
                 email: booking.email,
                 appointmentDate: booking.appointmentDate,
@@ -119,10 +114,43 @@ async function run() {
             res.send(users);
         })
 
+        app.get('/users/admin/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email };
+            const user = await usersCollection.findOne(query);
+            res.send({
+                isAdmin: user?.role === 'admin'
+            });
+        })
+
         app.post('/users', async (req, res) => {
             const user = req.body;
-            // console.log(user);
             const result = await usersCollection.insertOne(user);
+            res.send(result);
+        })
+
+        app.put('/users/admin/:id', verifyJWT, async (req, res) => {
+            const decodedEmail = req.decoded.email;
+            const query = { email: decodedEmail };
+            const user = await usersCollection.findOne(query);
+            if (user?.role !== 'admin') {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+            }
+            const result = await usersCollection.updateOne(filter, updateDoc, options);
+            res.send(result);
+        });
+
+        app.post('/doctors', async (req, res) => {
+            const doctor = req.body;
+            const result = await doctorsCollection.insertOne(doctor);
             res.send(result);
         })
     }
@@ -136,4 +164,4 @@ app.get('/', async (req, res) => {
     res.send("doctor portal server is running");
 })
 
-app.listen(port, () => console.log(`Doctors portal is running on port ${port}`));
+app.listen(port, () => console.log(`Doctors portal is listening to port ${port}`));
