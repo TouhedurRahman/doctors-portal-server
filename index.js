@@ -33,11 +33,11 @@ function verifyJWT(req, res, next) {
         req.decoded = decoded;
         next();
     })
-
 }
 
 async function run() {
     try {
+        // database collections
         const appointmentOptionsCollection = client.db('doctors_portal').collection('appointmentOptions');
         const bookingsCollection = client.db('doctors_portal').collection('bookings');
         const usersCollection = client.db('doctors_portal').collection('users');
@@ -106,13 +106,13 @@ async function run() {
             }
             console.log(user);
             res.status(403).send({ accessToken: '' });
-        })
+        });
 
         app.get('/users', async (req, res) => {
             const query = {};
             const users = await usersCollection.find(query).toArray();
             res.send(users);
-        })
+        });
 
         app.get('/users/admin/:email', async (req, res) => {
             const email = req.params.email;
@@ -121,13 +121,13 @@ async function run() {
             res.send({
                 isAdmin: user?.role === 'admin'
             });
-        })
+        });
 
         app.post('/users', async (req, res) => {
             const user = req.body;
             const result = await usersCollection.insertOne(user);
             res.send(result);
-        })
+        });
 
         app.put('/users/admin/:id', verifyJWT, async (req, res) => {
             const decodedEmail = req.decoded.email;
@@ -152,7 +152,13 @@ async function run() {
             const doctor = req.body;
             const result = await doctorsCollection.insertOne(doctor);
             res.send(result);
-        })
+        });
+
+        app.get('/doctors', async (req, res) => {
+            const query = {};
+            const doctors = await doctorsCollection.find(query).toArray();
+            res.send(doctors);
+        });
     }
     finally {
 
